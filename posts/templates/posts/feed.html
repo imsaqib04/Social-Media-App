@@ -1,5 +1,4 @@
 {% extends "users/base.html" %}
-{% load mathfilters %}
 {% load static %}
 
 {% block body %}
@@ -17,7 +16,7 @@
                  class="w-10 h-10 rounded-full object-cover border">
             <div>
                 <h3 class="text-sm font-semibold text-gray-800">{{ post.user.username }}</h3>
-                <p class="text-xs text-gray-500">Posted {{ post.created_at|timesince }} ago</p>
+                <p class="text-xs text-gray-500">Posted {{ post.created|timesince }} ago</p>
             </div>
         </div>
 
@@ -29,7 +28,7 @@
 
         <div class="px-4 py-3 flex items-center gap-5">
             <img id="{{ post.id }}" class="btn-like w-6 h-6 cursor-pointer hover:scale-110 transition" 
-            {% if logged_user in post.liked_by.all %}
+            {% if user in post.liked_by.all %}
                 src="{% static 'users/images/love.png' %}" alt="Unlike">
             {% else %}
                 src="{% static 'users/images/heart.png' %}" alt="Like">
@@ -40,29 +39,16 @@
             <img class="w-6 h-6 cursor-pointer hover:scale-110 transition" 
                  src="{% static 'users/images/share.png' %}" alt="Share">
         </div>
-        {% comment %} <div>
-            {% if post.liked_by.count < 1 %}
-            {% elif post.liked_by.count ==1 %}
-            {{post.liked_by.first }} Likes this
-            {% elif post.liked_by.count >1 %}
-            {{post.liked_by.first }} & {{post.liked_by.count|sub:1}} other liked this
-            {% endif %}
-        </div> {% endcomment %}
 
         <div class="px-4 pb-4">
-    <div id="like-text-{{ post.id }}" class="text-sm font-semibold text-gray-700">
-        {% if post.liked_by.count == 1 %}
-            {{ post.liked_by.first }} likes this
-        {% elif post.liked_by.count > 1 %}
-            {{ post.liked_by.first }} and {{ post.liked_by.count|add:"-1" }} other like this
-        {% endif %}
-    </div>
+            <div id="like-text-{{ post.id }}" class="text-sm font-semibold text-gray-700 mb-2">
+                {% if post.liked_by.count == 1 %}
+                    {{ post.liked_by.first }} likes this
+                {% elif post.liked_by.count > 1 %}
+                    {{ post.liked_by.first }} and {{ post.liked_by.count|add:"-1" }} others like this
+                {% endif %}
+            </div>
 
-    <h4 class="text-lg font-medium text-gray-800">{{ post.title }}</h4>
-    <p class="text-sm text-gray-600 mt-1">{{ post.caption }}</p>
-</div>
-
-        <div class="px-4 pb-4">
             <h4 class="text-lg font-medium text-gray-800">{{ post.title }}</h4>
             <p class="text-sm text-gray-600 mt-1">{{ post.caption }}</p>
         </div>
@@ -73,45 +59,49 @@
 </div>
 
 <script type="text/javascript">
-    // Store static paths for the two heart icons for easy access
     const likedIconUrl = "{% static 'users/images/love.png' %}";
     const unlikedIconUrl = "{% static 'users/images/heart.png' %}";
 
     $(document).ready(function() {
-        // This function runs when the page is fully loaded
-
-        // Set the CSRF token for all future AJAX requests to ensure security
         $.ajaxSetup({
             beforeSend: function(xhr, settings) {
                 xhr.setRequestHeader("X-CSRFToken", "{{ csrf_token }}");
             }
         });
 
-        // Attach a click event listener to any element with the 'btn-like' class
         $(document).on('click', '.btn-like', function() {
-            var post_id = this.id; // Get the post ID from the button's id attribute
-            var likeButton = $(this); // Get a jQuery reference to the clicked image
+            var post_id = this.id; 
+            var likeButton = $(this);
 
             $.ajax({
                 method: "POST",
-                url: '/posts/like', // The URL to your Django view that handles the like
-                data: { 
-                    post_id: post_id 
-                }
+                url: '/posts/like', // Make sure this URL is correct
+                data: { post_id: post_id }
             })
             .done(function(response) {
-                // This part runs ONLY if the server responds successfully
-                // It updates the heart icon instantly without a page reload
+                // 1. Update the heart icon
                 if (response.liked) {
                     likeButton.attr('src', likedIconUrl);
-                    likeButton.attr('alt', 'Unlike');
                 } else {
                     likeButton.attr('src', unlikedIconUrl);
-                    likeButton.attr('alt', 'Like');
                 }
+
+                // 2. Update the like text dynamically
+                var count = response.likes_count;
+                var firstLiker = response.first_liker_username;
+                var likeTextElement = $('#like-text-' + post_id);
+                var newText = "";
+
+                if (count === 1) {
+                    newText = firstLiker + " likes this";
+                } else if (count > 1) {
+                    var otherLikes = count - 1;
+                    newText = firstLiker + " and " + otherLikes + " others like this";
+                }
+
+                likeTextElement.text(newText);
             })
             .fail(function() {
-                // Optional: This part runs if the server request fails
                 alert("An error occurred. Please try again.");
             });
         });
