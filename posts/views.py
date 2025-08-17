@@ -1,7 +1,7 @@
 from django.shortcuts import render ,get_object_or_404,redirect
 from .forms import PostCreateForm
 from django.contrib.auth.decorators import login_required
-from .models import Post
+from .models import Post,Comment
 from django.http import JsonResponse
 # Create your views here.
 
@@ -76,3 +76,29 @@ def like_post(request):
         })
     
     return JsonResponse({'error': 'Invalid request'}, status=400)
+
+
+@login_required
+def add_comment(request):
+    if request.method == 'POST':
+        post_id = request.POST.get('post_id')
+        comment_text = request.POST.get('comment_text')
+        
+        if comment_text: # Ensure comment is not empty
+            post = get_object_or_404(Post, id=post_id)
+            new_comment = Comment.objects.create(
+                post=post,
+                user=request.user,
+                body=comment_text
+            )
+            
+            # Return the new comment's data for the AJAX success function
+            return JsonResponse({
+                'status': 'ok',
+                'user': new_comment.user.username,
+                'profile_photo_url': new_comment.user.profile.photo.url,
+                'body': new_comment.body,
+                'created': new_comment.created.strftime('%b. %d, %Y, %I:%M %p') # Formatted time
+            })
+            
+    return JsonResponse({'status': 'error', 'message': 'Invalid request'}, status=400)

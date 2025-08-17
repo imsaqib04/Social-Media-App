@@ -1,7 +1,6 @@
 {% extends "users/base.html" %}
 {% load static %}
-
-{% block body %}
+{% load mathfilters %} {% block body %}
 <div class="flex justify-center mt-6">
     <h2 class="text-3xl font-bold text-gray-700">📸 Feed</h2>
 </div>
@@ -34,8 +33,10 @@
                 src="{% static 'users/images/heart.png' %}" alt="Like">
             {% endif %}
 
-            <img class="w-6 h-6 cursor-pointer hover:scale-110 transition" 
+            <img class="btn-toggle-comments w-6 h-6 cursor-pointer hover:scale-110 transition" 
+                 data-post-id="{{ post.id }}"
                  src="{% static 'users/images/comment.png' %}" alt="Comment">
+
             <img class="w-6 h-6 cursor-pointer hover:scale-110 transition" 
                  src="{% static 'users/images/share.png' %}" alt="Share">
         </div>
@@ -51,6 +52,27 @@
 
             <h4 class="text-lg font-medium text-gray-800">{{ post.title }}</h4>
             <p class="text-sm text-gray-600 mt-1">{{ post.caption }}</p>
+
+            <div id="comment-section-{{ post.id }}" class="hidden mt-4 pt-4 border-t border-gray-200">
+                <div id="comment-list-{{ post.id }}">
+                    {% for comment in post.comments.all %}
+                    <div class="flex items-start gap-2 mb-2">
+                        <img src="{{ comment.user.profile.photo.url }}" class="w-6 h-6 rounded-full object-cover">
+                        <div>
+                            <p class="text-xs">
+                                <strong class="font-semibold">{{ comment.user.username }}</strong>
+                                {{ comment.body }}
+                            </p>
+                        </div>
+                    </div>
+                    {% endfor %}
+                </div>
+                
+                <div class="mt-3 flex gap-2">
+                    <input type="text" id="comment-input-{{ post.id }}" class="w-full text-sm border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500" placeholder="Add a comment...">
+                    <button class="btn-comment text-sm font-semibold text-blue-600 hover:text-blue-800" data-post-id="{{ post.id }}">Post</button>
+                </div>
+            </div>
         </div>
     </div>
     {% empty %}
@@ -63,30 +85,29 @@
     const unlikedIconUrl = "{% static 'users/images/heart.png' %}";
 
     $(document).ready(function() {
+        // Setup CSRF token for all AJAX requests
         $.ajaxSetup({
             beforeSend: function(xhr, settings) {
                 xhr.setRequestHeader("X-CSRFToken", "{{ csrf_token }}");
             }
         });
 
+        // --- LIKE BUTTON LOGIC ---
         $(document).on('click', '.btn-like', function() {
             var post_id = this.id; 
             var likeButton = $(this);
 
             $.ajax({
                 method: "POST",
-                url: '/posts/like', // Make sure this URL is correct
+                url: '/posts/like',
                 data: { post_id: post_id }
             })
             .done(function(response) {
-                // 1. Update the heart icon
                 if (response.liked) {
                     likeButton.attr('src', likedIconUrl);
                 } else {
                     likeButton.attr('src', unlikedIconUrl);
                 }
-
-                // 2. Update the like text dynamically
                 var count = response.likes_count;
                 var firstLiker = response.first_liker_username;
                 var likeTextElement = $('#like-text-' + post_id);
@@ -98,12 +119,50 @@
                     var otherLikes = count - 1;
                     newText = firstLiker + " and " + otherLikes + " others like this";
                 }
-
                 likeTextElement.text(newText);
             })
-            .fail(function() {
-                alert("An error occurred. Please try again.");
-            });
+            .fail(function() { alert("An error occurred with the like feature."); });
+        });
+
+        // --- COMMENT POST LOGIC ---
+        $(document).on('click', '.btn-comment', function() {
+            var post_id = $(this).data('post-id');
+            var commentInput = $('#comment-input-' + post_id);
+            var commentText = commentInput.val();
+
+            if (commentText.trim() === "") { return; }
+
+            $.ajax({
+                method: "POST",
+                url: '/posts/comment',
+                data: {
+                    post_id: post_id,
+                    comment_text: commentText
+                }
+            })
+            .done(function(response) {
+                if (response.status === 'ok') {
+                    var newCommentHtml = `
+                        <div class="flex items-start gap-2 mb-2">
+                            <img src="${response.profile_photo_url}" class="w-6 h-6 rounded-full object-cover">
+                            <div>
+                                <p class="text-xs">
+                                    <strong class="font-semibold">${response.user}</strong>
+                                    ${response.body}
+                                </p>
+                            </div>
+                        </div>`;
+                    $('#comment-list-' + post_id).append(newCommentHtml);
+                    commentInput.val('');
+                }
+            })
+            .fail(function() { alert("Failed to post comment. Please try again."); });
+        });
+
+        // --- COMMENT TOGGLE LOGIC ---
+        $(document).on('click', '.btn-toggle-comments', function() {
+            var post_id = $(this).data('post-id');
+            $('#comment-section-' + post_id).slideToggle(200);
         });
     });
 </script>
