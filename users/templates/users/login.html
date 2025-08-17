@@ -1,9 +1,30 @@
-<form method="POST">
-    {% csrf_token %}
-    {{ form.as_p }}
-    <input type="submit">
-</form>
+{% extends "users/base.html" %}
+{% block body %}
+<div class="flex justify-center items-center min-h-screen bg-gray-100">
+    <div class="bg-white shadow-lg rounded-2xl p-8 w-full max-w-md">
+        
+        <!-- Heading -->
+        <h1 class="text-2xl font-bold text-center text-gray-700 mb-6">Login</h1>
 
-<p>
-    <a href="{% url 'password_reset'%}">forgot pasword? click here to reset</a>
-</p>
+        <!-- Form -->
+        <form method="POST" class="space-y-4">
+            {% csrf_token %}
+            {{ form.as_p }}
+            
+            <!-- Submit Button -->
+            <button type="submit" 
+                    class="w-full bg-blue-500 text-white py-2 rounded-lg hover:bg-blue-600 transition duration-200">
+                Login
+            </button>
+        </form>
+
+        <!-- Forgot Password -->
+        <p class="text-sm text-gray-600 mt-4 text-center">
+            <a href="{% url 'password_reset' %}" class="text-blue-500 hover:underline">
+                Forgot password? Click here to reset
+            </a>
+        </p>
+
+    </div>
+</div>
+{% endblock %}
